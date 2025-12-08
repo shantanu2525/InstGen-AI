@@ -3,7 +3,7 @@ import { Controls } from './components/Controls';
 import { PostPreview } from './components/PostPreview';
 import { generateImage, generateCaption, enhancePrompt } from './services/geminiService';
 import { AspectRatio, ImageStyle, ImageModel } from './types';
-import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings } from 'lucide-react';
+import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings, Github } from 'lucide-react';
 
 // Fallback key also defined here to initialize state correctly without service import lag
 const API_KEY_FALLBACK = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
@@ -375,9 +375,14 @@ const App: React.FC = () => {
             </div>
         )}
         
-        <p className="text-xs text-center text-slate-700 mt-8 mb-2">
-            Powered by Gemini 2.5 Flash & 3.0 Pro, & OpenAI
-        </p>
+        <div className="mt-8 mb-4 text-center space-y-2">
+            <p className="text-xs text-slate-700">
+                Powered by Gemini 2.5 Flash & 3.0 Pro, & OpenAI
+            </p>
+            <p className="text-xs text-slate-600 flex items-center justify-center gap-1">
+                Developed by <a href="https://github.com/shantanu2525" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-purple-400 transition-colors border-b border-transparent hover:border-purple-500/30">Shantanu Metri</a>
+            </p>
+        </div>
       </div>
 
       {/* Right Content - Preview */}
