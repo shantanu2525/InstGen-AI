@@ -124,7 +124,7 @@ const App: React.FC = () => {
     if (!prompt) return;
     setIsEnhancing(true);
     try {
-      const newPrompt = await enhancePrompt(prompt);
+      const newPrompt = await enhancePrompt(prompt, style);
       setPrompt(newPrompt);
     } catch (e) {
       // failures silently ignored

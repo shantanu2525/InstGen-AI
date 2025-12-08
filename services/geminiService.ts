@@ -54,7 +54,7 @@ export const generateImage = async (
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
       for (const part of parts) {
-        if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+        if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/')) {
           base64Image = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
           break;
         }
@@ -112,12 +112,21 @@ export const generateCaption = async (imagePrompt: string): Promise<string> => {
   }
 };
 
-export const enhancePrompt = async (originalPrompt: string): Promise<string> => {
+export const enhancePrompt = async (originalPrompt: string, style: ImageStyle = ImageStyle.NONE): Promise<string> => {
   try {
     const ai = getAiClient();
-     const response = await ai.models.generateContent({
+    
+    let instructions = `Rewrite the following image prompt to be more descriptive, artistic, and detailed for an AI image generator.`;
+    
+    if (style !== ImageStyle.NONE) {
+       instructions += ` The desired art style is "${style}", so include visual descriptors, lighting, techniques, and textures specific to this style.`;
+    }
+    
+    instructions += ` Keep it under 60 words. Preserve the original subject but make the description vivid and compelling. Do not add quotes.`;
+
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `Rewrite this image prompt to be more descriptive and artistic for an AI image generator. Keep it under 50 words. Original: "${originalPrompt}"`,
+      contents: `${instructions} Original prompt: "${originalPrompt}"`,
     });
     return response.text?.trim() || originalPrompt;
   } catch (e) {

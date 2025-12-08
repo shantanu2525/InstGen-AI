@@ -89,7 +89,7 @@ export const Controls: React.FC<ControlsProps> = ({
             <button 
                 onClick={onEnhance}
                 disabled={isEnhancing || !prompt}
-                className="text-xs flex items-center space-x-1.5 text-purple-400 hover:text-purple-300 disabled:opacity-50 transition-colors py-1 px-2 rounded hover:bg-purple-500/10"
+                className="text-xs flex items-center space-x-1.5 text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {isEnhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 <span>Enhance</span>
