@@ -2,7 +2,13 @@ import { GoogleGenAI } from "@google/genai";
 import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
 // Helper to get a fresh client instance with the latest key
-const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = () => {
+  const key = process.env.API_KEY;
+  if (!key) {
+    throw new Error("API Key is missing. If you are in AI Studio, please select a key. If on Vercel, check environment variables.");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
 
 // Helper to fix prompts that result in no image (often due to safety filters)
 const fixBlockedPrompt = async (originalPrompt: string): Promise<string> => {
