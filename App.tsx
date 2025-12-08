@@ -3,7 +3,7 @@ import { Controls } from './components/Controls';
 import { PostPreview } from './components/PostPreview';
 import { generateImage, generateCaption, enhancePrompt } from './services/geminiService';
 import { AspectRatio, ImageStyle, ImageModel } from './types';
-import { Download, Instagram, AlertCircle, CheckCircle2, Key } from 'lucide-react';
+import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings } from 'lucide-react';
 
 // Helper to apply watermark via Canvas
 const applyWatermark = async (base64Image: string, text: string): Promise<string> => {
@@ -54,6 +54,8 @@ const applyWatermark = async (base64Image: string, text: string): Promise<string
 
 const App: React.FC = () => {
   const [hasKey, setHasKey] = useState(false);
+  const [isAiStudio, setIsAiStudio] = useState(false);
+  
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [style, setStyle] = useState<ImageStyle>(ImageStyle.NONE);
@@ -78,12 +80,24 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKey = async () => {
-      if ((window as any).aistudio && (window as any).aistudio.hasSelectedApiKey) {
-        const has = await (window as any).aistudio.hasSelectedApiKey();
-        setHasKey(has);
+      // Check if we are running in the Google AI Studio environment
+      if ((window as any).aistudio) {
+        setIsAiStudio(true);
+        if ((window as any).aistudio.hasSelectedApiKey) {
+          const has = await (window as any).aistudio.hasSelectedApiKey();
+          setHasKey(has);
+        } else {
+          setHasKey(false);
+        }
       } else {
-        // Fallback for environments where aistudio object isn't available immediately
-        setHasKey(true);
+        // Standard environment (Vercel, Local, etc.)
+        setIsAiStudio(false);
+        // Check if the API key is injected via environment variables
+        if (process.env.API_KEY && process.env.API_KEY.length > 0) {
+          setHasKey(true);
+        } else {
+          setHasKey(false);
+        }
       }
     };
     checkKey();
@@ -167,8 +181,9 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       if (err.message && err.message.includes("Requested entity was not found")) {
+        // This specific error suggests the key/project is invalid
         setHasKey(false);
-        setError("API Key issue detected. Please select your key again.");
+        setError("API Key issue detected. Please check your configuration.");
       } else {
         setError(err.message || "Failed to generate content. Please try again.");
       }
@@ -240,18 +255,50 @@ const App: React.FC = () => {
          </div>
          <h1 className="text-3xl font-bold text-white mb-3">Welcome to InstaGen AI</h1>
          <p className="text-slate-400 max-w-md mb-8">
-           To create stunning visuals with Gemini's high-performance models, please select a billing-enabled API key.
+           To create stunning visuals with Gemini's high-performance models, this app requires an API Key.
          </p>
-         <button 
-           onClick={handleSelectKey}
-           className="flex items-center space-x-2 bg-white text-slate-950 px-8 py-4 rounded-xl font-semibold hover:bg-slate-100 transition-colors shadow-lg shadow-white/10"
-         >
-           <Key className="w-5 h-5" />
-           <span>Select API Key</span>
-         </button>
-         <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="mt-6 text-xs text-slate-500 hover:text-slate-400 underline">
-            Read about billing requirements
-         </a>
+
+         {isAiStudio ? (
+           // Button for AI Studio Environment
+           <>
+             <button 
+               onClick={handleSelectKey}
+               className="flex items-center space-x-2 bg-white text-slate-950 px-8 py-4 rounded-xl font-semibold hover:bg-slate-100 transition-colors shadow-lg shadow-white/10"
+             >
+               <Key className="w-5 h-5" />
+               <span>Select API Key</span>
+             </button>
+             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="mt-6 text-xs text-slate-500 hover:text-slate-400 underline">
+                Read about billing requirements
+             </a>
+           </>
+         ) : (
+           // Instructions for Vercel/Local Environment
+           <div className="max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
+              <div className="flex items-start space-x-3 mb-4">
+                  <div className="p-2 bg-red-500/10 rounded-lg">
+                    <Settings className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">API Key Missing</h3>
+                    <p className="text-sm text-slate-400 mt-1">
+                      The <code className="bg-slate-800 px-1.5 py-0.5 rounded text-purple-400 font-mono text-xs">API_KEY</code> environment variable is not set.
+                    </p>
+                  </div>
+              </div>
+              
+              <div className="space-y-4 text-sm text-slate-300">
+                  <p>To fix this in Vercel:</p>
+                  <ol className="list-decimal pl-4 space-y-2 text-slate-400">
+                    <li>Go to your Vercel Project Settings.</li>
+                    <li>Navigate to <strong>Environment Variables</strong>.</li>
+                    <li>Add a new variable named <code className="text-white">API_KEY</code>.</li>
+                    <li>Paste your Gemini API key as the value.</li>
+                    <li>Redeploy your project.</li>
+                  </ol>
+              </div>
+           </div>
+         )}
       </div>
     );
   }
