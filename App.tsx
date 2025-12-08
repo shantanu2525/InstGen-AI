@@ -380,7 +380,11 @@ const App: React.FC = () => {
                 Powered by Gemini 2.5 Flash & 3.0 Pro, & OpenAI
             </p>
             <p className="text-xs text-slate-600 flex items-center justify-center gap-1">
-                Developed by <a href="https://github.com/shantanu2525" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-purple-400 transition-colors border-b border-transparent hover:border-purple-500/30">Shantanu Metri</a>
+                Developed by 
+                <a href="https://github.com/shantanu2525" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-slate-500 hover:text-purple-400 transition-colors border-b border-transparent hover:border-purple-500/30">
+                    <Github className="w-3 h-3" />
+                    <span>Shantanu Metri</span>
+                </a>
             </p>
         </div>
       </div>
