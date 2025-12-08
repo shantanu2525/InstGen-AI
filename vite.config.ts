@@ -1,7 +1,7 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
   // User explicitly requested to use a specific API key.
   const API_KEY = "AIzaSyCmizT_J858Lqmob8QEXKlINNSHnbocXPE";
 
