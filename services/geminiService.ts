@@ -22,6 +22,9 @@ const getAiClient = () => {
   }
 };
 
+// Helper function to pause execution
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Helper to fix prompts that result in no image (often due to safety filters)
 const fixBlockedPrompt = async (originalPrompt: string): Promise<string> => {
   try {
@@ -85,8 +88,23 @@ export const generateImage = async (
 
     return base64Image;
 
-  } catch (error) {
-    // If it's the first failure, try to fix the prompt and retry
+  } catch (error: any) {
+    // Check for Rate Limit / Quota Exceeded (429)
+    const isRateLimit = error.status === 429 || 
+                        error.code === 429 || 
+                        (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded') || error.message.includes('RESOURCE_EXHAUSTED')));
+
+    if (isRateLimit) {
+      if (!isRetry) {
+        console.warn("Rate limit hit (429). Retrying in 5 seconds...");
+        await wait(5000); // Wait 5 seconds to clear the rate limit
+        return generateImage(prompt, ratio, style, model, true);
+      } else {
+        throw new Error("High traffic detected. Please wait a minute before trying again.");
+      }
+    }
+
+    // If it's the first failure (and NOT a rate limit), try to fix the prompt and retry
     if (!isRetry) {
       console.warn("Image generation failed. Attempting to auto-fix prompt...", error);
       const fixedPrompt = await fixBlockedPrompt(prompt);
@@ -124,7 +142,14 @@ export const generateCaption = async (imagePrompt: string): Promise<string> => {
     if (!text) return "Check out this AI generated image! #AI #Art";
     return text.trim();
 
-  } catch (error) {
+  } catch (error: any) {
+    // Simple retry for caption as well if rate limited
+    if (error.status === 429 || (error.message && error.message.includes('429'))) {
+       console.warn("Caption generation rate limited. Returning fallback.");
+       // For captions, we can just fail gracefully to the fallback instead of waiting 5s to keep UI snappy
+       return "Check out this AI generated image! #AI #Art";
+    }
+
     console.error("Gemini Caption Generation Error:", error);
     return "Check out this AI generated image! #AI #Art"; // Fallback
   }
