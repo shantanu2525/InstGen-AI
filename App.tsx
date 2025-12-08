@@ -5,6 +5,9 @@ import { generateImage, generateCaption, enhancePrompt } from './services/gemini
 import { AspectRatio, ImageStyle, ImageModel } from './types';
 import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings } from 'lucide-react';
 
+// Fallback key also defined here to initialize state correctly without service import lag
+const API_KEY_FALLBACK = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
+
 // Helper to apply watermark via Canvas
 const applyWatermark = async (base64Image: string, text: string): Promise<string> => {
   if (!text) return base64Image;
@@ -53,11 +56,19 @@ const applyWatermark = async (base64Image: string, text: string): Promise<string
 };
 
 const App: React.FC = () => {
-  // Initialize hasKey based on immediate presence of env var (injected by Vite)
-  // This prevents the "Select Key" screen from flashing if the key is hardcoded.
+  // Initialize hasKey using the fallback logic. 
+  // We check safe process.env OR if we have a hardcoded fallback.
   const [hasKey, setHasKey] = useState(() => {
-    const key = process.env.API_KEY;
-    return !!(key && key.length > 0 && key !== 'undefined');
+    if (API_KEY_FALLBACK) return true;
+    
+    try {
+      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+        const k = process.env.API_KEY;
+        return !!(k && k.length > 0 && k !== 'undefined');
+      }
+    } catch(e) {}
+
+    return false;
   });
   
   const [isAiStudio, setIsAiStudio] = useState(false);
@@ -92,22 +103,28 @@ const App: React.FC = () => {
       // Check if we are running in the Google AI Studio environment
       if ((window as any).aistudio) {
         setIsAiStudio(true);
-        if ((window as any).aistudio.hasSelectedApiKey) {
+        // In AI Studio, we respect the studio's key selector if explicitly used,
+        // but since we have a fallback, we default to true to allow preview to work immediately.
+        if (API_KEY_FALLBACK) {
+          setHasKey(true);
+        } else if ((window as any).aistudio.hasSelectedApiKey) {
           const has = await (window as any).aistudio.hasSelectedApiKey();
           setHasKey(has);
-        } else {
-          // In AI Studio, even if we have a hardcoded key, we might respect the studio's key selector
-          // But since user explicitly asked to use coded key, we prioritize the initial state unless explicitly missing
-          // setHasKey(false); 
         }
       } else {
         // Standard environment (Vercel, Local, etc.)
         setIsAiStudio(false);
-        const key = process.env.API_KEY;
-        if (key && key.length > 0 && key !== 'undefined') {
+        if (API_KEY_FALLBACK) {
           setHasKey(true);
         } else {
-          setHasKey(false);
+          try {
+            const key = typeof process !== 'undefined' ? process.env.API_KEY : null;
+            if (key && key.length > 0 && key !== 'undefined') {
+              setHasKey(true);
+            } else {
+              setHasKey(false);
+            }
+          } catch(e) { setHasKey(false); }
         }
       }
     };

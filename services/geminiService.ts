@@ -1,10 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
+// Fallback Key for Preview Environments where process.env might fail
+const API_KEY_FALLBACK = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
+
 // Helper to get a fresh client instance with the latest key
 const getAiClient = () => {
-  // Access key directly from process.env to ensure Vite replacement works
-  const key = process.env.API_KEY;
+  let key = API_KEY_FALLBACK;
+
+  // Attempt to use process.env.API_KEY if available (Vite injection)
+  // We check typeof process to avoid ReferenceError in simple browser previews
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      const envKey = process.env.API_KEY;
+      if (envKey && envKey !== 'undefined') {
+        key = envKey;
+      }
+    }
+  } catch (e) {
+    // Ignore errors accessing process
+  }
   
   if (!key) {
     throw new Error("API Key is missing. If you are in AI Studio, please select a key. If on Vercel, check environment variables.");
