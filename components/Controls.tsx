@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wand2, Loader2, Sparkles, Image as ImageIcon, AlignJustify, Smartphone, Zap, Star, Type } from 'lucide-react';
+import { Wand2, Loader2, Sparkles, Image as ImageIcon, AlignJustify, Smartphone, Zap, Star, Type, Bot } from 'lucide-react';
 import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
 interface ControlsProps {
@@ -19,6 +19,8 @@ interface ControlsProps {
   setWatermarkEnabled: (value: boolean) => void;
   watermarkText: string;
   setWatermarkText: (value: string) => void;
+  openAiKey: string;
+  setOpenAiKey: (value: string) => void;
 }
 
 export const Controls: React.FC<ControlsProps> = ({
@@ -37,7 +39,9 @@ export const Controls: React.FC<ControlsProps> = ({
   watermarkEnabled,
   setWatermarkEnabled,
   watermarkText,
-  setWatermarkText
+  setWatermarkText,
+  openAiKey,
+  setOpenAiKey
 }) => {
   return (
     <div className="space-y-8">
@@ -45,41 +49,64 @@ export const Controls: React.FC<ControlsProps> = ({
       {/* Model Selection */}
       <div className="space-y-3">
         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">AI Model</label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
             <button
                 onClick={() => setSelectedModel('gemini-2.5-flash-image')}
-                className={`relative flex items-center space-x-3 p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                className={`relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center ${
                     selectedModel === 'gemini-2.5-flash-image'
                     ? 'bg-slate-800/50 border-purple-500/50 text-white shadow-[0_0_15px_-3px_rgba(168,85,247,0.2)]'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800'
                 }`}
             >
-                <div className={`p-2 rounded-lg ${selectedModel === 'gemini-2.5-flash-image' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
+                <div className={`mb-1.5 p-1.5 rounded-lg ${selectedModel === 'gemini-2.5-flash-image' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
                    <Zap className="w-4 h-4" />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-sm font-semibold">Flash</span>
-                    <span className="text-[10px] opacity-60">Fast & Efficient</span>
-                </div>
+                <span className="text-xs font-semibold">Gemini Flash</span>
             </button>
 
             <button
                 onClick={() => setSelectedModel('gemini-3-pro-image-preview')}
-                className={`relative flex items-center space-x-3 p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                className={`relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center ${
                     selectedModel === 'gemini-3-pro-image-preview'
                     ? 'bg-slate-800/50 border-purple-500/50 text-white shadow-[0_0_15px_-3px_rgba(168,85,247,0.2)]'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800'
                 }`}
             >
-                 <div className={`p-2 rounded-lg ${selectedModel === 'gemini-3-pro-image-preview' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
+                 <div className={`mb-1.5 p-1.5 rounded-lg ${selectedModel === 'gemini-3-pro-image-preview' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
                    <Star className="w-4 h-4" />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-sm font-semibold">Pro</span>
-                    <span className="text-[10px] opacity-60">High Quality</span>
+                <span className="text-xs font-semibold">Gemini Pro</span>
+            </button>
+
+            <button
+                onClick={() => setSelectedModel('dall-e-3')}
+                className={`relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center ${
+                    selectedModel === 'dall-e-3'
+                    ? 'bg-slate-800/50 border-green-500/50 text-white shadow-[0_0_15px_-3px_rgba(34,197,94,0.2)]'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800'
+                }`}
+            >
+                 <div className={`mb-1.5 p-1.5 rounded-lg ${selectedModel === 'dall-e-3' ? 'bg-green-500/20 text-green-400' : 'bg-slate-800 text-slate-500'}`}>
+                   <Bot className="w-4 h-4" />
                 </div>
+                <span className="text-xs font-semibold">DALL-E 3</span>
             </button>
         </div>
+
+        {/* OpenAI Key Input (Conditional) */}
+        {selectedModel === 'dall-e-3' && (
+            <div className="animate-in slide-in-from-top-2 fade-in duration-200 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">OpenAI API Key (sk-...)</label>
+                <input 
+                    type="password"
+                    value={openAiKey}
+                    onChange={(e) => setOpenAiKey(e.target.value)}
+                    placeholder="sk-proj-..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2 px-3 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-green-500 transition-colors"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Key is only used for this session and not stored.</p>
+            </div>
+        )}
       </div>
 
       {/* Prompt Section */}

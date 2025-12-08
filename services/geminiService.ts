@@ -39,22 +39,79 @@ const fixBlockedPrompt = async (originalPrompt: string): Promise<string> => {
   }
 };
 
+// --- OpenAI Integration ---
+const generateOpenAIImage = async (
+  prompt: string,
+  ratio: AspectRatio,
+  openAiKey: string
+): Promise<string> => {
+  if (!openAiKey) {
+    throw new Error("OpenAI API Key is required for DALL-E 3 generation.");
+  }
+
+  // Map AspectRatio to DALL-E 3 supported sizes
+  // DALL-E 3 supports 1024x1024, 1024x1792, 1792x1024
+  let size = "1024x1024";
+  if (ratio === '3:4' || ratio === '9:16') {
+    size = "1024x1792";
+  }
+
+  const response = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${openAiKey}`
+    },
+    body: JSON.stringify({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: size,
+      response_format: "b64_json"
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const msg = data.error?.message || "Failed to generate image with OpenAI";
+    throw new Error(`OpenAI Error: ${msg}`);
+  }
+
+  const b64 = data.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("No image data returned from OpenAI.");
+  }
+
+  return `data:image/png;base64,${b64}`;
+};
+// --------------------------
+
 export const generateImage = async (
   prompt: string,
   ratio: AspectRatio,
   style: ImageStyle,
   model: ImageModel,
-  isRetry: boolean = false
+  isRetry: boolean = false,
+  openAiKey?: string // Optional key for OpenAI calls
 ): Promise<string> => {
+  
+  let promptToSend = prompt;
+  // Construct the final prompt with style
+  if (style !== ImageStyle.NONE) {
+    promptToSend = `${style} style. ${prompt}`;
+  }
+
+  // Route to OpenAI if selected
+  if (model === 'dall-e-3') {
+    if (!openAiKey) throw new Error("Please enter your OpenAI API Key to use DALL-E 3.");
+    return generateOpenAIImage(promptToSend, ratio, openAiKey);
+  }
+
+  // Otherwise, use Gemini
   try {
     const ai = getAiClient();
-    let promptToSend = prompt;
     
-    // Construct the final prompt with style
-    if (style !== ImageStyle.NONE) {
-      promptToSend = `${style} style. ${prompt}`;
-    }
-
     // Use the selected model (Flash Image or Pro Image)
     const response = await ai.models.generateContent({
       model: model,
@@ -98,7 +155,7 @@ export const generateImage = async (
       if (!isRetry) {
         console.warn("Rate limit hit (429). Retrying in 5 seconds...");
         await wait(5000); // Wait 5 seconds to clear the rate limit
-        return generateImage(prompt, ratio, style, model, true);
+        return generateImage(prompt, ratio, style, model, true, openAiKey);
       } else {
         throw new Error("High traffic detected. Please wait a minute before trying again.");
       }
@@ -111,7 +168,7 @@ export const generateImage = async (
       
       // If the prompt was changed, retry with the new prompt
       if (fixedPrompt !== prompt) {
-        return generateImage(fixedPrompt, ratio, style, model, true);
+        return generateImage(fixedPrompt, ratio, style, model, true, openAiKey);
       }
     }
     

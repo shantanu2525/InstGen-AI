@@ -1,6 +1,6 @@
 export type AspectRatio = '1:1' | '3:4' | '9:16';
 
-export type ImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
+export type ImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview' | 'dall-e-3';
 
 export interface GenerationResult {
   imageUrl: string;

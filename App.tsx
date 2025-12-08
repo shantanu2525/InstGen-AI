@@ -67,6 +67,9 @@ const App: React.FC = () => {
   const [style, setStyle] = useState<ImageStyle>(ImageStyle.NONE);
   const [selectedModel, setSelectedModel] = useState<ImageModel>('gemini-2.5-flash-image');
   
+  // OpenAI Specific State
+  const [openAiKey, setOpenAiKey] = useState('');
+
   // Watermark State
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
   const [watermarkText, setWatermarkText] = useState('@instagen.ai');
@@ -173,10 +176,10 @@ const App: React.FC = () => {
 
     try {
       // 1. Generate Image using selected model and ratio
-      const imageBase64 = await generateImage(promptVal, ratioVal, styleVal, modelVal);
+      const imageBase64 = await generateImage(promptVal, ratioVal, styleVal, modelVal, false, openAiKey);
       setRawImageUrl(imageBase64); // This triggers the watermark effect
 
-      // 2. Generate Caption in parallel
+      // 2. Generate Caption in parallel (always uses Gemini for text)
       const generatedCaption = await generateCaption(promptVal);
       setCaption(generatedCaption);
 
@@ -343,6 +346,8 @@ const App: React.FC = () => {
                 setWatermarkEnabled={setWatermarkEnabled}
                 watermarkText={watermarkText}
                 setWatermarkText={setWatermarkText}
+                openAiKey={openAiKey}
+                setOpenAiKey={setOpenAiKey}
             />
         </div>
 
@@ -354,7 +359,7 @@ const App: React.FC = () => {
         )}
         
         <p className="text-xs text-center text-slate-700 mt-8 mb-2">
-            Powered by Gemini 2.5 Flash & 3.0 Pro
+            Powered by Gemini 2.5 Flash & 3.0 Pro, & OpenAI
         </p>
       </div>
 
