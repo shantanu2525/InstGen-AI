@@ -53,7 +53,13 @@ const applyWatermark = async (base64Image: string, text: string): Promise<string
 };
 
 const App: React.FC = () => {
-  const [hasKey, setHasKey] = useState(false);
+  // Initialize hasKey based on immediate presence of env var (injected by Vite)
+  // This prevents the "Select Key" screen from flashing if the key is hardcoded.
+  const [hasKey, setHasKey] = useState(() => {
+    const key = process.env.API_KEY;
+    return !!(key && key.length > 0 && key !== 'undefined');
+  });
+  
   const [isAiStudio, setIsAiStudio] = useState(false);
   
   const [prompt, setPrompt] = useState('');
@@ -87,13 +93,13 @@ const App: React.FC = () => {
           const has = await (window as any).aistudio.hasSelectedApiKey();
           setHasKey(has);
         } else {
-          setHasKey(false);
+          // In AI Studio, even if we have a hardcoded key, we might respect the studio's key selector
+          // But since user explicitly asked to use coded key, we prioritize the initial state unless explicitly missing
+          // setHasKey(false); 
         }
       } else {
         // Standard environment (Vercel, Local, etc.)
         setIsAiStudio(false);
-        // Check if the API key is injected via environment variables
-        // We use a safe check here to avoid crashing if process.env.API_KEY is undefined/null
         const key = process.env.API_KEY;
         if (key && key.length > 0 && key !== 'undefined') {
           setHasKey(true);
