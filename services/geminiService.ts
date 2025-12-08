@@ -3,11 +3,23 @@ import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
 // Helper to get a fresh client instance with the latest key
 const getAiClient = () => {
+  // Access key directly from process.env to ensure Vite replacement works
   const key = process.env.API_KEY;
+  
   if (!key) {
     throw new Error("API Key is missing. If you are in AI Studio, please select a key. If on Vercel, check environment variables.");
   }
-  return new GoogleGenAI({ apiKey: key });
+
+  try {
+    return new GoogleGenAI({ apiKey: key });
+  } catch (error: any) {
+    // Catch the specific SDK error "An API Key must be set when running in a browser"
+    // and rethrow it as a user-friendly configuration error.
+    if (error.message && error.message.includes("An API Key must be set")) {
+        throw new Error("API Key is invalid or not properly set in the environment.");
+    }
+    throw error;
+  }
 };
 
 // Helper to fix prompts that result in no image (often due to safety filters)

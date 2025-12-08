@@ -93,7 +93,9 @@ const App: React.FC = () => {
         // Standard environment (Vercel, Local, etc.)
         setIsAiStudio(false);
         // Check if the API key is injected via environment variables
-        if (process.env.API_KEY && process.env.API_KEY.length > 0) {
+        // We use a safe check here to avoid crashing if process.env.API_KEY is undefined/null
+        const key = process.env.API_KEY;
+        if (key && key.length > 0 && key !== 'undefined') {
           setHasKey(true);
         } else {
           setHasKey(false);
@@ -180,8 +182,8 @@ const App: React.FC = () => {
       }
 
     } catch (err: any) {
-      if (err.message && err.message.includes("Requested entity was not found")) {
-        // This specific error suggests the key/project is invalid
+      if (err.message && (err.message.includes("Requested entity was not found") || err.message.includes("API Key is invalid"))) {
+        // This specific error suggests the key/project is invalid or missing
         setHasKey(false);
         setError("API Key issue detected. Please check your configuration.");
       } else {
