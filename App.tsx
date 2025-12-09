@@ -92,8 +92,9 @@ const App: React.FC = () => {
     const keyFromUrl = params.get('api_key') || params.get('key');
     
     if (keyFromUrl) {
-      localStorage.setItem('gemini_api_key', keyFromUrl);
-      setGeminiApiKey(keyFromUrl);
+      const cleanedKey = keyFromUrl.trim();
+      localStorage.setItem('gemini_api_key', cleanedKey);
+      setGeminiApiKey(cleanedKey);
       setHasKey(true);
       // Clean URL without refresh
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -103,16 +104,17 @@ const App: React.FC = () => {
     // 2. Check LocalStorage
     const storedKey = localStorage.getItem('gemini_api_key');
     if (storedKey) {
-      setGeminiApiKey(storedKey);
+      setGeminiApiKey(storedKey.trim());
       setHasKey(true);
     }
   }, []);
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputKey.trim().length > 10) {
-      localStorage.setItem('gemini_api_key', inputKey.trim());
-      setGeminiApiKey(inputKey.trim());
+    const cleanKey = inputKey.trim();
+    if (cleanKey.length > 10) {
+      localStorage.setItem('gemini_api_key', cleanKey);
+      setGeminiApiKey(cleanKey);
       setHasKey(true);
     }
   };
@@ -174,6 +176,11 @@ const App: React.FC = () => {
     modelVal: ImageModel
   ) => {
     if (!promptVal) return;
+    
+    if (!geminiApiKey) {
+        setError("API Key is missing. Please try logging out and back in.");
+        return;
+    }
 
     setIsGenerating(true);
     setError(null);
@@ -199,8 +206,8 @@ const App: React.FC = () => {
       }
 
     } catch (err: any) {
-      if (err.message && (err.message.includes("Requested entity was not found") || err.message.includes("API Key is invalid"))) {
-        setError("Session expired or API Key invalid. Please log in again.");
+      if (err.message && (err.message.includes("Requested entity was not found") || err.message.includes("API Key is invalid") || err.message.includes("API Key not found"))) {
+        setError("Session expired or API Key invalid. Please log out and try again.");
       } else {
         setError(err.message || "Failed to generate content. Please try again.");
       }

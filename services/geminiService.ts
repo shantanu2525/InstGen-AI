@@ -3,12 +3,14 @@ import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
 // Helper to get a fresh client instance with the provided key
 const getAiClient = (apiKey: string) => {
-  if (!apiKey) {
+  const key = apiKey ? apiKey.trim() : '';
+  
+  if (!key) {
     throw new Error("API Key is missing. Please provide a valid Gemini API Key.");
   }
 
   try {
-    return new GoogleGenAI({ apiKey: apiKey });
+    return new GoogleGenAI({ apiKey: key });
   } catch (error: any) {
     if (error.message && error.message.includes("An API Key must be set")) {
         throw new Error("API Key is invalid.");
@@ -55,7 +57,7 @@ const generateOpenAIImage = async (
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${openAiKey}`
+      "Authorization": `Bearer ${openAiKey.trim()}`
     },
     body: JSON.stringify({
       model: "dall-e-3",
@@ -92,6 +94,8 @@ export const generateImage = async (
   openAiKey?: string // Optional key for OpenAI calls
 ): Promise<string> => {
   
+  const validApiKey = apiKey ? apiKey.trim() : '';
+
   let promptToSend = prompt;
   // Construct the final prompt with style
   if (style !== ImageStyle.NONE) {
@@ -106,7 +110,7 @@ export const generateImage = async (
 
   // Otherwise, use Gemini
   try {
-    const ai = getAiClient(apiKey);
+    const ai = getAiClient(validApiKey);
     
     // Use the selected model (Flash Image or Pro Image)
     const response = await ai.models.generateContent({
@@ -142,29 +146,37 @@ export const generateImage = async (
     return base64Image;
 
   } catch (error: any) {
+    // Attempt to parse JSON error message from Google
+    let errorMessage = error.message;
+    
     // Check for Rate Limit / Quota Exceeded (429)
     const isRateLimit = error.status === 429 || 
                         error.code === 429 || 
-                        (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded') || error.message.includes('RESOURCE_EXHAUSTED')));
+                        (errorMessage && (errorMessage.includes('429') || errorMessage.includes('Quota exceeded') || errorMessage.includes('RESOURCE_EXHAUSTED')));
 
     if (isRateLimit) {
       if (!isRetry) {
         console.warn("Rate limit hit (429). Retrying in 5 seconds...");
         await wait(5000); // Wait 5 seconds to clear the rate limit
-        return generateImage(prompt, ratio, style, model, apiKey, true, openAiKey);
+        return generateImage(prompt, ratio, style, model, validApiKey, true, openAiKey);
       } else {
-        throw new Error("High traffic detected. Please wait a minute before trying again.");
+        throw new Error("High traffic detected (Quota Exceeded). Please wait a minute before trying again.");
       }
+    }
+
+    // Check for 400 API Key Invalid explicitly
+    if (error.status === 400 || (errorMessage && errorMessage.includes("API Key not found"))) {
+      throw new Error("API Key is invalid or missing. Please log in again.");
     }
 
     // If it's the first failure (and NOT a rate limit), try to fix the prompt and retry
     if (!isRetry) {
       console.warn("Image generation failed. Attempting to auto-fix prompt...", error);
-      const fixedPrompt = await fixBlockedPrompt(prompt, apiKey);
+      const fixedPrompt = await fixBlockedPrompt(prompt, validApiKey);
       
       // If the prompt was changed, retry with the new prompt
       if (fixedPrompt !== prompt) {
-        return generateImage(fixedPrompt, ratio, style, model, apiKey, true, openAiKey);
+        return generateImage(fixedPrompt, ratio, style, model, validApiKey, true, openAiKey);
       }
     }
     
