@@ -3,7 +3,7 @@ import { Controls } from './components/Controls';
 import { PostPreview } from './components/PostPreview';
 import { generateImage, generateCaption, enhancePrompt } from './services/geminiService';
 import { AspectRatio, ImageStyle, ImageModel } from './types';
-import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings, Github, LogOut, ArrowRight, Lock } from 'lucide-react';
+import { Download, Instagram, AlertCircle, CheckCircle2, Key, Github, LogOut, ArrowRight } from 'lucide-react';
 
 // Helper to apply watermark via Canvas
 const applyWatermark = async (base64Image: string, text: string): Promise<string> => {
