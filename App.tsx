@@ -3,10 +3,7 @@ import { Controls } from './components/Controls';
 import { PostPreview } from './components/PostPreview';
 import { generateImage, generateCaption, enhancePrompt } from './services/geminiService';
 import { AspectRatio, ImageStyle, ImageModel } from './types';
-import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings, Github } from 'lucide-react';
-
-// Fallback key also defined here to initialize state correctly without service import lag
-const API_KEY_FALLBACK = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
+import { Download, Instagram, AlertCircle, CheckCircle2, Key, Settings, Github, LogOut, ArrowRight, Lock } from 'lucide-react';
 
 // Helper to apply watermark via Canvas
 const applyWatermark = async (base64Image: string, text: string): Promise<string> => {
@@ -56,22 +53,12 @@ const applyWatermark = async (base64Image: string, text: string): Promise<string
 };
 
 const App: React.FC = () => {
-  // Initialize hasKey using the fallback logic. 
-  // We check safe process.env OR if we have a hardcoded fallback.
-  const [hasKey, setHasKey] = useState(() => {
-    if (API_KEY_FALLBACK) return true;
-    
-    try {
-      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-        const k = process.env.API_KEY;
-        return !!(k && k.length > 0 && k !== 'undefined');
-      }
-    } catch(e) {}
-
-    return false;
-  });
-  
-  const [isAiStudio, setIsAiStudio] = useState(false);
+  // --- Auth State ---
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [hasKey, setHasKey] = useState(false);
+  const [inputKey, setInputKey] = useState('');
+  const [showManualLogin, setShowManualLogin] = useState(false);
+  // ------------------
   
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
@@ -98,38 +85,53 @@ const App: React.FC = () => {
 
   const previewRef = useRef<HTMLDivElement>(null);
 
+  // Initialize Auth from LocalStorage or URL params
   useEffect(() => {
-    const checkKey = async () => {
-      // Check if we are running in the Google AI Studio environment
-      if ((window as any).aistudio) {
-        setIsAiStudio(true);
-        // In AI Studio, we respect the studio's key selector if explicitly used,
-        // but since we have a fallback, we default to true to allow preview to work immediately.
-        if (API_KEY_FALLBACK) {
-          setHasKey(true);
-        } else if ((window as any).aistudio.hasSelectedApiKey) {
-          const has = await (window as any).aistudio.hasSelectedApiKey();
-          setHasKey(has);
-        }
-      } else {
-        // Standard environment (Vercel, Local, etc.)
-        setIsAiStudio(false);
-        if (API_KEY_FALLBACK) {
-          setHasKey(true);
-        } else {
-          try {
-            const key = typeof process !== 'undefined' ? process.env.API_KEY : null;
-            if (key && key.length > 0 && key !== 'undefined') {
-              setHasKey(true);
-            } else {
-              setHasKey(false);
-            }
-          } catch(e) { setHasKey(false); }
-        }
-      }
-    };
-    checkKey();
+    // 1. Check URL Params (Backend Redirect Flow)
+    const params = new URLSearchParams(window.location.search);
+    const keyFromUrl = params.get('api_key') || params.get('key');
+    
+    if (keyFromUrl) {
+      localStorage.setItem('gemini_api_key', keyFromUrl);
+      setGeminiApiKey(keyFromUrl);
+      setHasKey(true);
+      // Clean URL without refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    // 2. Check LocalStorage
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) {
+      setGeminiApiKey(storedKey);
+      setHasKey(true);
+    }
   }, []);
+
+  const handleManualLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputKey.trim().length > 10) {
+      localStorage.setItem('gemini_api_key', inputKey.trim());
+      setGeminiApiKey(inputKey.trim());
+      setHasKey(true);
+    }
+  };
+
+  const handleDemoLogin = () => {
+    // Using the user-provided key for quick access/demo purposes
+    const demoKey = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
+    localStorage.setItem('gemini_api_key', demoKey);
+    setGeminiApiKey(demoKey);
+    setHasKey(true);
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('gemini_api_key');
+    setGeminiApiKey('');
+    setHasKey(false);
+    setInputKey('');
+    setShowManualLogin(false);
+  };
 
   // Effect to apply/re-apply watermark when settings change, without regenerating the whole image
   useEffect(() => {
@@ -151,22 +153,11 @@ const App: React.FC = () => {
   }, [rawImageUrl, watermarkEnabled, watermarkText]);
 
 
-  const handleSelectKey = async () => {
-    if ((window as any).aistudio) {
-      try {
-        await (window as any).aistudio.openSelectKey();
-        setHasKey(true); // Assume success per guidelines
-      } catch (e) {
-        console.error("Key selection failed", e);
-      }
-    }
-  };
-
   const handleEnhancePrompt = async () => {
     if (!prompt) return;
     setIsEnhancing(true);
     try {
-      const newPrompt = await enhancePrompt(prompt, style);
+      const newPrompt = await enhancePrompt(prompt, style, geminiApiKey);
       setPrompt(newPrompt);
     } catch (e) {
       // failures silently ignored
@@ -193,11 +184,11 @@ const App: React.FC = () => {
 
     try {
       // 1. Generate Image using selected model and ratio
-      const imageBase64 = await generateImage(promptVal, ratioVal, styleVal, modelVal, false, openAiKey);
+      const imageBase64 = await generateImage(promptVal, ratioVal, styleVal, modelVal, geminiApiKey, false, openAiKey);
       setRawImageUrl(imageBase64); // This triggers the watermark effect
 
       // 2. Generate Caption in parallel (always uses Gemini for text)
-      const generatedCaption = await generateCaption(promptVal);
+      const generatedCaption = await generateCaption(promptVal, geminiApiKey);
       setCaption(generatedCaption);
 
       // Auto-scroll to preview on mobile
@@ -209,9 +200,7 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       if (err.message && (err.message.includes("Requested entity was not found") || err.message.includes("API Key is invalid"))) {
-        // This specific error suggests the key/project is invalid or missing
-        setHasKey(false);
-        setError("API Key issue detected. Please check your configuration.");
+        setError("Session expired or API Key invalid. Please log in again.");
       } else {
         setError(err.message || "Failed to generate content. Please try again.");
       }
@@ -274,59 +263,95 @@ const App: React.FC = () => {
     }
   };
 
-  // API Key Gatekeeper Screen
+  // Login / Gatekeeper Screen
   if (!hasKey) {
     return (
-      <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-         <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-purple-900/40">
-            <Instagram className="w-10 h-10 text-white" />
+      <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+         {/* Background Decor */}
+         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-20">
+            <div className="absolute top-10 left-10 w-64 h-64 bg-purple-600 rounded-full blur-[100px]" />
+            <div className="absolute bottom-10 right-10 w-80 h-80 bg-pink-600 rounded-full blur-[120px]" />
          </div>
-         <h1 className="text-3xl font-bold text-white mb-3">Welcome to InstaGen AI</h1>
-         <p className="text-slate-400 max-w-md mb-8">
-           To create stunning visuals with Gemini's high-performance models, this app requires an API Key.
-         </p>
 
-         {isAiStudio ? (
-           // Button for AI Studio Environment
-           <>
-             <button 
-               onClick={handleSelectKey}
-               className="flex items-center space-x-2 bg-white text-slate-950 px-8 py-4 rounded-xl font-semibold hover:bg-slate-100 transition-colors shadow-lg shadow-white/10"
-             >
-               <Key className="w-5 h-5" />
-               <span>Select API Key</span>
-             </button>
-             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="mt-6 text-xs text-slate-500 hover:text-slate-400 underline">
-                Read about billing requirements
-             </a>
-           </>
-         ) : (
-           // Instructions for Vercel/Local Environment
-           <div className="max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
-              <div className="flex items-start space-x-3 mb-4">
-                  <div className="p-2 bg-red-500/10 rounded-lg">
-                    <Settings className="w-5 h-5 text-red-400" />
+         <div className="relative z-10 flex flex-col items-center">
+            <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-purple-900/40">
+                <Instagram className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">InstaGen AI</h1>
+            <p className="text-slate-400 max-w-sm mb-10 text-base leading-relaxed">
+              Create stunning, Instagram-ready visuals and captions in seconds using the power of Gemini.
+            </p>
+
+            <div className="max-w-sm w-full space-y-4">
+                {/* Main Login Options */}
+                {!showManualLogin ? (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <button 
+                        onClick={handleDemoLogin}
+                        className="w-full bg-white hover:bg-slate-100 text-slate-950 font-bold py-3.5 rounded-xl flex items-center justify-center space-x-3 transition-colors shadow-lg shadow-white/10 group"
+                      >
+                         <div className="w-5 h-5 flex items-center justify-center">
+                           <svg viewBox="0 0 24 24" className="w-full h-full" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                         </div>
+                         <span>Sign in with Google</span>
+                         <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                      </button>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-slate-800" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-slate-950 px-2 text-slate-500">Or</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => setShowManualLogin(true)}
+                        className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold py-3.5 rounded-xl flex items-center justify-center space-x-2 transition-colors"
+                      >
+                         <Key className="w-4 h-4" />
+                         <span>Enter API Key Manually</span>
+                      </button>
                   </div>
-                  <div>
-                    <h3 className="text-white font-medium">API Key Missing</h3>
-                    <p className="text-sm text-slate-400 mt-1">
-                      The <code className="bg-slate-800 px-1.5 py-0.5 rounded text-purple-400 font-mono text-xs">API_KEY</code> environment variable is not set.
-                    </p>
-                  </div>
-              </div>
-              
-              <div className="space-y-4 text-sm text-slate-300">
-                  <p>To fix this in Vercel:</p>
-                  <ol className="list-decimal pl-4 space-y-2 text-slate-400">
-                    <li>Go to your Vercel Project Settings.</li>
-                    <li>Navigate to <strong>Environment Variables</strong>.</li>
-                    <li>Add a new variable named <code className="text-white">API_KEY</code>.</li>
-                    <li>Paste your Gemini API key as the value.</li>
-                    <li>Redeploy your project.</li>
-                  </ol>
-              </div>
-           </div>
-         )}
+                ) : (
+                  <form onSubmit={handleManualLogin} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                      <div>
+                        <input 
+                            type="password" 
+                            value={inputKey}
+                            onChange={(e) => setInputKey(e.target.value)}
+                            placeholder="Paste Gemini API Key (AIzaSy...)"
+                            autoFocus
+                            className="w-full bg-slate-900/80 border border-slate-700 rounded-xl py-3.5 px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-sm"
+                        />
+                      </div>
+                      <div className="flex space-x-3">
+                          <button 
+                            type="button"
+                            onClick={() => setShowManualLogin(false)}
+                            className="flex-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 font-semibold py-3 rounded-xl transition-colors text-sm"
+                          >
+                            Back
+                          </button>
+                          <button 
+                            type="submit"
+                            disabled={!inputKey}
+                            className="flex-[2] bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors text-sm shadow-lg shadow-purple-900/20"
+                          >
+                            <span>Connect</span>
+                          </button>
+                      </div>
+                  </form>
+                )}
+            </div>
+
+            <div className="mt-12 text-center">
+                <p className="text-[10px] text-slate-600">
+                  By continuing, you agree to use the Gemini API <br/> in accordance with Google's Terms of Service.
+                </p>
+            </div>
+         </div>
       </div>
     );
   }
@@ -337,12 +362,22 @@ const App: React.FC = () => {
       
       {/* Left Sidebar - Controls */}
       <div className="w-full md:w-[400px] lg:w-[450px] p-6 md:p-8 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-auto md:h-dvh relative md:sticky md:top-0 bg-slate-950 z-20 md:overflow-y-auto no-scrollbar">
-        <div className="mb-8 flex-shrink-0">
-            <div className="flex items-center space-x-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
-                <Instagram className="w-6 h-6 text-pink-500" />
-                <h1 className="text-2xl font-bold tracking-tight">InstaGen AI</h1>
+        <div className="mb-8 flex-shrink-0 flex justify-between items-start">
+            <div>
+              <div className="flex items-center space-x-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                  <Instagram className="w-6 h-6 text-pink-500" />
+                  <h1 className="text-2xl font-bold tracking-tight">InstaGen AI</h1>
+              </div>
+              <p className="text-slate-500 text-sm mt-1">Concept to Instagram post in seconds.</p>
             </div>
-            <p className="text-slate-500 text-sm mt-1">Concept to Instagram post in seconds.</p>
+            
+            <button 
+              onClick={handleLogout} 
+              className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
         </div>
 
         <div className="flex-1">

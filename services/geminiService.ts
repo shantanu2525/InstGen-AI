@@ -1,37 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 import { AspectRatio, ImageStyle, ImageModel } from '../types';
 
-// Fallback Key for Preview Environments where process.env might fail
-const API_KEY_FALLBACK = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
-
-// Helper to get a fresh client instance with the latest key
-const getAiClient = () => {
-  let key = API_KEY_FALLBACK;
-
-  // Attempt to use process.env.API_KEY if available (Vite injection)
-  // We check typeof process to avoid ReferenceError in simple browser previews
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      const envKey = process.env.API_KEY;
-      if (envKey && envKey !== 'undefined') {
-        key = envKey;
-      }
-    }
-  } catch (e) {
-    // Ignore errors accessing process
-  }
-  
-  if (!key) {
-    throw new Error("API Key is missing. If you are in AI Studio, please select a key. If on Vercel, check environment variables.");
+// Helper to get a fresh client instance with the provided key
+const getAiClient = (apiKey: string) => {
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please provide a valid Gemini API Key.");
   }
 
   try {
-    return new GoogleGenAI({ apiKey: key });
+    return new GoogleGenAI({ apiKey: apiKey });
   } catch (error: any) {
-    // Catch the specific SDK error "An API Key must be set when running in a browser"
-    // and rethrow it as a user-friendly configuration error.
     if (error.message && error.message.includes("An API Key must be set")) {
-        throw new Error("API Key is invalid or not properly set in the environment.");
+        throw new Error("API Key is invalid.");
     }
     throw error;
   }
@@ -41,9 +21,9 @@ const getAiClient = () => {
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper to fix prompts that result in no image (often due to safety filters)
-const fixBlockedPrompt = async (originalPrompt: string): Promise<string> => {
+const fixBlockedPrompt = async (originalPrompt: string, apiKey: string): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = getAiClient(apiKey);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `The following image generation prompt failed to generate an image (likely due to safety filters or lack of clarity). Rewrite it to be safe, descriptive, and policy-compliant while preserving the core artistic intent. Prompt: "${originalPrompt}"`,
@@ -107,6 +87,7 @@ export const generateImage = async (
   ratio: AspectRatio,
   style: ImageStyle,
   model: ImageModel,
+  apiKey: string,
   isRetry: boolean = false,
   openAiKey?: string // Optional key for OpenAI calls
 ): Promise<string> => {
@@ -125,7 +106,7 @@ export const generateImage = async (
 
   // Otherwise, use Gemini
   try {
-    const ai = getAiClient();
+    const ai = getAiClient(apiKey);
     
     // Use the selected model (Flash Image or Pro Image)
     const response = await ai.models.generateContent({
@@ -170,7 +151,7 @@ export const generateImage = async (
       if (!isRetry) {
         console.warn("Rate limit hit (429). Retrying in 5 seconds...");
         await wait(5000); // Wait 5 seconds to clear the rate limit
-        return generateImage(prompt, ratio, style, model, true, openAiKey);
+        return generateImage(prompt, ratio, style, model, apiKey, true, openAiKey);
       } else {
         throw new Error("High traffic detected. Please wait a minute before trying again.");
       }
@@ -179,11 +160,11 @@ export const generateImage = async (
     // If it's the first failure (and NOT a rate limit), try to fix the prompt and retry
     if (!isRetry) {
       console.warn("Image generation failed. Attempting to auto-fix prompt...", error);
-      const fixedPrompt = await fixBlockedPrompt(prompt);
+      const fixedPrompt = await fixBlockedPrompt(prompt, apiKey);
       
       // If the prompt was changed, retry with the new prompt
       if (fixedPrompt !== prompt) {
-        return generateImage(fixedPrompt, ratio, style, model, true, openAiKey);
+        return generateImage(fixedPrompt, ratio, style, model, apiKey, true, openAiKey);
       }
     }
     
@@ -192,9 +173,9 @@ export const generateImage = async (
   }
 };
 
-export const generateCaption = async (imagePrompt: string): Promise<string> => {
+export const generateCaption = async (imagePrompt: string, apiKey: string): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = getAiClient(apiKey);
     const prompt = `
       You are a social media expert. Write a catchy, engaging Instagram caption for an image described as: "${imagePrompt}".
       Include 2-3 short sentences and a set of 10-15 relevant, trending hashtags at the end.
@@ -227,9 +208,9 @@ export const generateCaption = async (imagePrompt: string): Promise<string> => {
   }
 };
 
-export const enhancePrompt = async (originalPrompt: string, style: ImageStyle = ImageStyle.NONE): Promise<string> => {
+export const enhancePrompt = async (originalPrompt: string, style: ImageStyle = ImageStyle.NONE, apiKey: string): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = getAiClient(apiKey);
     
     let instructions = `Rewrite the following image prompt to be more descriptive, artistic, and detailed for an AI image generator.`;
     
