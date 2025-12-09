@@ -3,7 +3,7 @@ import { Controls } from './components/Controls';
 import { PostPreview } from './components/PostPreview';
 import { generateImage, generateCaption, enhancePrompt } from './services/geminiService';
 import { AspectRatio, ImageStyle, ImageModel } from './types';
-import { Download, Instagram, AlertCircle, CheckCircle2, Key, Github, LogOut, ArrowRight } from 'lucide-react';
+import { Download, Instagram, AlertCircle, CheckCircle2, Github } from 'lucide-react';
 
 // Helper to apply watermark via Canvas
 const applyWatermark = async (base64Image: string, text: string): Promise<string> => {
@@ -53,12 +53,8 @@ const applyWatermark = async (base64Image: string, text: string): Promise<string
 };
 
 const App: React.FC = () => {
-  // --- Auth State ---
-  const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [hasKey, setHasKey] = useState(false);
-  const [inputKey, setInputKey] = useState('');
-  const [showManualLogin, setShowManualLogin] = useState(false);
-  // ------------------
+  // Hardcoded API Key for immediate access
+  const [geminiApiKey] = useState('AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA');
   
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
@@ -84,56 +80,6 @@ const App: React.FC = () => {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
-
-  // Initialize Auth from LocalStorage or URL params
-  useEffect(() => {
-    // 1. Check URL Params (Backend Redirect Flow)
-    const params = new URLSearchParams(window.location.search);
-    const keyFromUrl = params.get('api_key') || params.get('key');
-    
-    if (keyFromUrl) {
-      const cleanedKey = keyFromUrl.trim();
-      localStorage.setItem('gemini_api_key', cleanedKey);
-      setGeminiApiKey(cleanedKey);
-      setHasKey(true);
-      // Clean URL without refresh
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    // 2. Check LocalStorage
-    const storedKey = localStorage.getItem('gemini_api_key');
-    if (storedKey) {
-      setGeminiApiKey(storedKey.trim());
-      setHasKey(true);
-    }
-  }, []);
-
-  const handleManualLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanKey = inputKey.trim();
-    if (cleanKey.length > 10) {
-      localStorage.setItem('gemini_api_key', cleanKey);
-      setGeminiApiKey(cleanKey);
-      setHasKey(true);
-    }
-  };
-
-  const handleDemoLogin = () => {
-    // Using the user-provided key for quick access/demo purposes
-    const demoKey = "AIzaSyB33IGftG1Jj3jld9tygz3BzIqn3RjippA";
-    localStorage.setItem('gemini_api_key', demoKey);
-    setGeminiApiKey(demoKey);
-    setHasKey(true);
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('gemini_api_key');
-    setGeminiApiKey('');
-    setHasKey(false);
-    setInputKey('');
-    setShowManualLogin(false);
-  };
 
   // Effect to apply/re-apply watermark when settings change, without regenerating the whole image
   useEffect(() => {
@@ -178,7 +124,7 @@ const App: React.FC = () => {
     if (!promptVal) return;
     
     if (!geminiApiKey) {
-        setError("API Key is missing. Please try logging out and back in.");
+        setError("API Key is configuration error. Please contact developer.");
         return;
     }
 
@@ -207,7 +153,7 @@ const App: React.FC = () => {
 
     } catch (err: any) {
       if (err.message && (err.message.includes("Requested entity was not found") || err.message.includes("API Key is invalid") || err.message.includes("API Key not found"))) {
-        setError("Session expired or API Key invalid. Please log out and try again.");
+        setError("API Key invalid or quota exceeded.");
       } else {
         setError(err.message || "Failed to generate content. Please try again.");
       }
@@ -270,99 +216,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Login / Gatekeeper Screen
-  if (!hasKey) {
-    return (
-      <div className="min-h-dvh bg-slate-950 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-         {/* Background Decor */}
-         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-20">
-            <div className="absolute top-10 left-10 w-64 h-64 bg-purple-600 rounded-full blur-[100px]" />
-            <div className="absolute bottom-10 right-10 w-80 h-80 bg-pink-600 rounded-full blur-[120px]" />
-         </div>
-
-         <div className="relative z-10 flex flex-col items-center">
-            <div className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-purple-900/40">
-                <Instagram className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">InstaGen AI</h1>
-            <p className="text-slate-400 max-w-sm mb-10 text-base leading-relaxed">
-              Create stunning, Instagram-ready visuals and captions in seconds using the power of Gemini.
-            </p>
-
-            <div className="max-w-sm w-full space-y-4">
-                {/* Main Login Options */}
-                {!showManualLogin ? (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <button 
-                        onClick={handleDemoLogin}
-                        className="w-full bg-white hover:bg-slate-100 text-slate-950 font-bold py-3.5 rounded-xl flex items-center justify-center space-x-3 transition-colors shadow-lg shadow-white/10 group"
-                      >
-                         <div className="w-5 h-5 flex items-center justify-center">
-                           <svg viewBox="0 0 24 24" className="w-full h-full" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                         </div>
-                         <span>Sign in with Google</span>
-                         <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
-                      </button>
-
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-slate-800" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-slate-950 px-2 text-slate-500">Or</span>
-                        </div>
-                      </div>
-
-                      <button 
-                        onClick={() => setShowManualLogin(true)}
-                        className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold py-3.5 rounded-xl flex items-center justify-center space-x-2 transition-colors"
-                      >
-                         <Key className="w-4 h-4" />
-                         <span>Enter API Key Manually</span>
-                      </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleManualLogin} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                      <div>
-                        <input 
-                            type="password" 
-                            value={inputKey}
-                            onChange={(e) => setInputKey(e.target.value)}
-                            placeholder="Paste Gemini API Key (AIzaSy...)"
-                            autoFocus
-                            className="w-full bg-slate-900/80 border border-slate-700 rounded-xl py-3.5 px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all text-sm"
-                        />
-                      </div>
-                      <div className="flex space-x-3">
-                          <button 
-                            type="button"
-                            onClick={() => setShowManualLogin(false)}
-                            className="flex-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 font-semibold py-3 rounded-xl transition-colors text-sm"
-                          >
-                            Back
-                          </button>
-                          <button 
-                            type="submit"
-                            disabled={!inputKey}
-                            className="flex-[2] bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors text-sm shadow-lg shadow-purple-900/20"
-                          >
-                            <span>Connect</span>
-                          </button>
-                      </div>
-                  </form>
-                )}
-            </div>
-
-            <div className="mt-12 text-center">
-                <p className="text-[10px] text-slate-600">
-                  By continuing, you agree to use the Gemini API <br/> in accordance with Google's Terms of Service.
-                </p>
-            </div>
-         </div>
-      </div>
-    );
-  }
-
   // Main App Interface
   return (
     <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col md:flex-row">
@@ -377,14 +230,6 @@ const App: React.FC = () => {
               </div>
               <p className="text-slate-500 text-sm mt-1">Concept to Instagram post in seconds.</p>
             </div>
-            
-            <button 
-              onClick={handleLogout} 
-              className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
         </div>
 
         <div className="flex-1">
